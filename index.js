@@ -1,7 +1,7 @@
 // Create table
 function creatTable() {
     let table = document.getElementsByTagName("table")[0]
-    let inputHTML = `<input type="number" inputmode="numeric" pattern="[1-9]*" min="1" max="9">`
+    let inputHTML = `<input type="text" onkeypress='return event.charCode >= 49 && event.charCode <= 57'></input>`
     
         // Add possible answers to each box
     let p_ans_containerHTML = "<div class='p-ans-container'>"
@@ -29,6 +29,7 @@ function creatTable() {
     
         // Add function to input square
     let inputBlocks = document.getElementsByTagName("input")
+    inputBlocks[0].focus()
     for (let i=0;i<inputBlocks.length;i++) {
         let block = inputBlocks[i]
         block.addEventListener("keypress",function(e) {
@@ -38,11 +39,35 @@ function creatTable() {
                 clickedSquare.value = ""
             }
         })
+        block.addEventListener("keydown",function(e) {
+            if (e.keyCode == 37) {
+                if (i > 0) {
+                    // inputBlocks[i].value = ""
+                    inputBlocks[i-1].focus()
+                }
+            }
+            else if (e.keyCode == 38) {
+                if (i >= 9) {
+                    // inputBlocks[i].value = ""
+                    inputBlocks[i-9].focus()}
+            }
+            else if (e.keyCode == 39) {
+                if (i < inputBlocks.length-1) {
+                // inputBlocks[i].value = ""
+                inputBlocks[i+1].focus()}
+            }
+            else if (e.keyCode == 40) {
+                if (i < inputBlocks.length - 9) {
+                    // inputBlocks[i].value = ""
+                    inputBlocks[i+9].focus()}
+            }
+        })
     }
 }
 
 // Creat a map from input
 function creatMap () {
+    emptySpace = 0
     map = []
     let row = -1
     let inputBlocks = document.getElementsByTagName("input")
@@ -69,6 +94,7 @@ function creatMap () {
             }
         ))
     }
+    
     localStorage.setItem("map",JSON.stringify(map))
     localStorage.setItem("emptySpace",JSON.stringify(emptySpace))
 }
@@ -83,7 +109,7 @@ function loadMap() {
 // If value in list return true
 function inFunc(v,lst) {
     for (let i=0;i<lst.length;i++) {
-        if (v==lst[i]) {return true}
+        if (v==lst[i] || equalFunc(v,lst[i])) {return true}
     }
     return false
 }
@@ -206,6 +232,7 @@ function findOnePoss() {
             if (pos.poss.length == 1) {
                 console.log("One possibilities")
                 move = [[r,c],pos.poss[0]]
+                mapChanged = true
             }
         }
     }
@@ -276,11 +303,146 @@ function findAppearOnce (counterList) {
         for (let j=0;j<group.length;j++) {
             if (group[j].appearance == 1) {
                 console.log("Appear once")
+                mapChanged = true
                 return [group[j].positions[0],j+1]
             }
         }
     }
     return []
+}
+
+// Find numbers that appear twice in a group
+function findAppearTwice(group) {
+    let result = []
+    for (let i=0;i<group.length;i++) {
+        if (group[i].appearance == 2) {
+            result.push(
+            {
+                value:i+1,
+                positions: group[i].positions
+            })
+        }
+    }
+    return result
+}
+
+// If two lists are the same return true
+function equalFunc(lst1,lst2) {
+    if (JSON.stringify(lst1) == JSON.stringify(lst2)) {return true}
+    return false
+}
+
+// Delete possibilities from pairs
+function deletePairsPoss (pairsValues,pairsPositions) {
+    let relatedPos = findRelatedPos(pairsPositions) // Get a list of related positions of the pairs
+    // Loop through every related position
+    for (let p=0;p<relatedPos.length;p++) {
+        let pos = relatedPos[p]                     // The current position
+        let value = map[pos[0]][pos[1]].value       // Get the current value to check
+        if (value == 0) {                           // If the position is empty 
+            let possList = map[pos[0]][pos[1]].poss // Get the posibilities of the current position
+            
+            // If the current position is one of the pair positions
+            if (inFunc(pos,pairsPositions))
+            {
+                // Loop through every possibilities in that position
+                for (let i=0;i<possList.length;i++) {
+                    // If the possibily is not one of the pairs' values remove it
+                    if (!inFunc(possList[i],pairsValues)) {
+                        mapChanged = true
+                        delFunc(possList[i],possList)
+                    }
+                }
+            }
+            // If the current postions is not one of the pair positions
+            else {
+                // Remove the pairs'value from its possibilities
+                for (let v=0;v<pairsValues.length;v++) {
+                    if (inFunc(pairsValues[v],possList)) {
+                        mapChanged = true
+                        delFunc(pairsValues[v],possList)   
+                    }
+                }
+            }    
+        }
+    }
+
+}
+
+// Return a list of related position(s) to one or more given positions
+function findRelatedPos (pList) {
+    let positionList = []
+    let row = findRow(pList[0][0])
+    let col = findCol(pList[0][1])
+    let box = findBox(pList[0])
+
+    if (pList.length > 1) {
+        for (let i=1;i<pList.length;i++) {
+            // If one position is in a different row
+            if (pList[i][0] != pList[0][0]) { 
+                row = [] // Remove the related row
+            }
+            // If one position is in a different col
+            if (pList[i][1] != pList[0][1]) { 
+                col = [] // Remove the related col
+            }
+            // If one positions is in a different box
+            if (!equalFunc([],box) & !equalFunc(box,findBox(pList[i]))) {
+                box = [] // Remove the related box
+            }
+        }
+    }
+
+    positionList = [].concat(row,col,box)
+    return positionList
+}
+
+// Find pairs and reduce possibilities from every groups
+function findPairs () {
+    let potential = [] // Initialize a list of potential positions
+    let counterList =[].concat(rowCounter,colCounter,boxCounter)
+
+    // Loop through every group
+    for (let ct=0; ct < counterList.length; ct++ ) {
+        let group = counterList[ct]        // The current group
+        potential = findAppearTwice(group) // Get a list of all numbers appears twice in this group
+        
+        // If there are at least two numbers in the list  
+        if (potential.length >= 2) {
+            // Find if there are any pairs
+            for (let i=0;i<potential.length - 1;i++) { // Loop through each position 
+                for (let j=i+1;j<potential.length;j++) { // Loop through the rest
+                    // If two numbers has the same positions
+                    if (equalFunc(potential[i].positions,potential[j].positions)) {
+                        let pairsValues = [potential[i].value,potential[j].value] // Get the value
+                        let pairsPositions = potential[i].positions               // Get the positions
+                        deletePairsPoss(pairsValues,pairsPositions)               // Delete posibilities
+                        printMap()
+                        console.log("Pair")
+                        console.log(pairsValues, pairsPositions)
+                    }
+                }
+            }
+        }  
+    }
+}
+
+function startSolving () {
+    for (let row=0;row<9;row++) {
+        for (let col=0;col < 9;col++){
+            let pos = map[row][col]
+            if (pos.value != 0) {removePoss([row,col],pos.value)}
+            
+        }
+    }
+    printMap()
+    document.getElementById("beginbtns").style.display = "none"
+    document.getElementById("solvebtns").style.display = "flex"
+}
+
+function finishSolving() {
+    document.getElementById("solvebtns").style.display = "none"
+    document.getElementById("endbtns").style.display = "flex"
 }
 
 let map = [] // Initialize map
@@ -290,48 +452,108 @@ let emptySpace = 0 // EmptySpace counter
 let rowCounter = []
 let colCounter = []
 let boxCounter = []
+let mapChanged = false
 creatTable()
-let startbtn = document.getElementById("start-btn")
-startbtn.addEventListener ('click',function() {
-    if (startbtn.textContent == "Start") {
-        // creatMap()
-        loadMap()
-        // printMap()
-        for (let row=0;row<9;row++) {
-            for (let col=0;col < 9;col++){
-                let pos = map[row][col]
-                if (pos.value != 0) {removePoss([row,col],pos.value)}
-                
-            }
+
+let createbtn = document.getElementById("createbtn")
+let loadbtn = document.getElementById("loadbtn")
+let finishbtn = document.getElementById("finishbtn")
+let solvebtn = document.getElementById("solvebtn")
+let hintbtn = document.getElementById("hintbtn")
+
+createbtn.addEventListener("click",function () {
+    creatMap()
+    startSolving()
+}) 
+
+loadbtn.addEventListener("click",function () {
+    loadMap()
+    startSolving()
+})
+
+solvebtn.addEventListener("click",function() {
+    while (true) {
+        mapChanged = false
+
+        // Make moves with only one possibility
+        let move = findOnePoss()
+    
+        // Make moves with digit appear only once in its group
+        if (!mapChanged) {
+            updateCounter()
+            let counterList = [].concat(rowCounter,colCounter,boxCounter)
+            move = findAppearOnce(counterList)
         }
-        printMap()
-        startbtn.textContent = "Solve"
+
+        // Find pairs to reduce possibilites
+        if (!mapChanged) {
+            // Find pairs from every groups
+            findPairs()
+            if(mapChanged) {continue} // While loop
+        }
+
+        if (move.length != 0) {
+            console.log(move)
+            makeMove(move)
+        }
+
+        if (emptySpace == 0) {
+            printMap()
+            break //While loop
+        }
+        
+        if (!mapChanged) {
+            alert("Can't solve")
+            break //While loop
+        }
+        
+    }    //While loop
+    finishSolving()
+})
+
+hintbtn.addEventListener("click",function () {
+    mapChanged = false
+
+    // Make moves with only one possibility
+    let move = findOnePoss()
+
+    // Make moves with digit appear only once in its group
+    if (!mapChanged) {
+        updateCounter()
+        let counterList = [].concat(rowCounter,colCounter,boxCounter)
+        move = findAppearOnce(counterList)
     }
-    else {
-        while (true) {
 
-            // Make moves with only one possibility
-            let move = findOnePoss()
+    // Find pairs to reduce possibilites
+    if (!mapChanged) {
+        // Find pairs from every groups
+        findPairs()
+    }
 
-            // Make moves with digit appear only once in its group
-            if (move.length == 0) {
-                updateCounter()
-                let counterList = [].concat(rowCounter,colCounter,boxCounter)
-                move = findAppearOnce(counterList)
-            }
+    if (emptySpace == 0) {
+        printMap()
+        alert("Done")
+        finishSolving()
+    }
 
-            if (move.length != 0) {
-                console.log(move)
-                makeMove(move)
-            }
-            else {
-                alert("Can't solve")
-                break //While loop
-            }
-            if (emptySpace == 0) {
-                printMap()
-                break //While loop
-            }
-        }    //While loop
+    if (move.length != 0) {
+        console.log(move)
+        makeMove(move)
+    }
+
+    if (!mapChanged) {
+        alert("Can't solve")
+        finishSolving()
     }
 })
+
+finishbtn.addEventListener("click",function () {
+    let inputBlocks = document.getElementsByTagName("input")
+    for (let i=0;i<inputBlocks.length;i++) {
+        inputBlocks[i].value = ""
+        inputBlocks[i].style.display = "inline-block"
+    }
+    document.getElementById("endbtns").style.display = "none"
+    document.getElementById("beginbtns").style.display = "flex"
+})
+

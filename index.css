@@ -15,7 +15,6 @@ html,body,#root {
     display: flex;
     flex-flow: column;
     justify-content: space-around;
-    border: black 1px solid;
     align-items: center;
 }
 
@@ -53,3 +52,23 @@ input[type="number"]::-webkit-outer-spin-button, input[type="number"]::-webkit-i
 table { border-collapse: collapse; font-family: Calibri, sans-serif;  }
 colgroup, tbody { border: solid medium; }
 td { border: solid thin; height: 3rem; width:3rem; text-align: center; padding: 0; position: relative;}
+
+#btn-container {
+    width: 10rem;
+    height: 3rem;
+    display: flex;
+    justify-content: space-around;
+    position: relative;
+}
+
+button {
+    height: 1.5rem;
+}
+
+#beginbtns,#solvebtns,#endbtns {
+    position: absolute;
+    width: 10rem;
+    height: 3rem;
+    display: flex;
+    justify-content: space-around;
+}

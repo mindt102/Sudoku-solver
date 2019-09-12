@@ -311,17 +311,29 @@ function findAppearOnce (counterList) {
     return []
 }
 
-// Find numbers that appear twice in a group
-function findAppearTwice(group) {
+// Find numbers that appear n times in a group
+function findByAppearTimes(group,times) {
     let result = []
     for (let i=0;i<group.length;i++) {
-        if (group[i].appearance == 2) {
-            result.push(
-            {
-                value:i+1,
-                positions: group[i].positions
-            })
+        if (typeof(times) == "number") {
+            if (group[i].appearance == times) {
+                result.push(
+                {
+                    value:i+1,
+                    positions: group[i].positions
+                })
+            }
         }
+        else {
+            if(times[0] <= group[i].appearance & group[i].appearance <= times[1]) {
+                result.push(
+                    {
+                        value:i+1,
+                        positions: group[i].positions
+                    })
+            }
+        }
+        
     }
     return result
 }
@@ -335,38 +347,40 @@ function equalFunc(lst1,lst2) {
 // Delete possibilities from pairs
 function deletePairsPoss (pairsValues,pairsPositions) {
     let relatedPos = findRelatedPos(pairsPositions) // Get a list of related positions of the pairs
-    // Loop through every related position
-    for (let p=0;p<relatedPos.length;p++) {
-        let pos = relatedPos[p]                     // The current position
+    delPoss(relatedPos,pairsValues,pairsPositions)  // Delete values of pairs in other position 
+    for (let p=0;p<pairsPositions.length;p++) {
+        let pos = pairsPositions[p]
+        let possList = map[pos[0]][pos[1]].poss
+        for (let i=0;i<possList.length;i++) {
+            if (!inFunc(possList[i],pairsValues)) {
+                mapChanged = true
+                delFunc(possList[i],possList)
+            }
+        } 
+    }
+}
+
+// Delete possibilities with given locations and values (maybe exclude some postitions)
+function delPoss (delPos,delVal,keepPos) {
+    for (let p=0;p<delPos.length;p++) {
+        let pos = delPos[p]                     // The current position
         let value = map[pos[0]][pos[1]].value       // Get the current value to check
         if (value == 0) {                           // If the position is empty 
             let possList = map[pos[0]][pos[1]].poss // Get the posibilities of the current position
-            
-            // If the current position is one of the pair positions
-            if (inFunc(pos,pairsPositions))
-            {
-                // Loop through every possibilities in that position
-                for (let i=0;i<possList.length;i++) {
-                    // If the possibily is not one of the pairs' values remove it
-                    if (!inFunc(possList[i],pairsValues)) {
+                       
+            // If the current postions is not one of the keep positions
+            if (!inFunc(pos,keepPos)) {
+                // Remove the delete value from its possibilities
+                for (let v=0;v<delVal.length;v++) {
+                    if (inFunc(delVal[v],possList)) {
                         mapChanged = true
-                        delFunc(possList[i],possList)
-                    }
-                }
-            }
-            // If the current postions is not one of the pair positions
-            else {
-                // Remove the pairs'value from its possibilities
-                for (let v=0;v<pairsValues.length;v++) {
-                    if (inFunc(pairsValues[v],possList)) {
-                        mapChanged = true
-                        delFunc(pairsValues[v],possList)   
+                        delFunc(delVal[v],possList)
+                        printMap()   
                     }
                 }
             }    
         }
     }
-
 }
 
 // Return a list of related position(s) to one or more given positions
@@ -405,7 +419,7 @@ function findPairs () {
     // Loop through every group
     for (let ct=0; ct < counterList.length; ct++ ) {
         let group = counterList[ct]        // The current group
-        potential = findAppearTwice(group) // Get a list of all numbers appears twice in this group
+        potential = findByAppearTimes(group,2) // Get a list of all numbers appears twice in this group
         
         // If there are at least two numbers in the list  
         if (potential.length >= 2) {
@@ -418,11 +432,15 @@ function findPairs () {
                         let pairsPositions = potential[i].positions               // Get the positions
                         deletePairsPoss(pairsValues,pairsPositions)               // Delete posibilities
                         printMap()
-                        console.log("Pair")
-                        console.log(pairsValues, pairsPositions)
+                        if (mapChanged) {
+                            console.log("Found pair")
+                            console.log(pairsValues, pairsPositions)
+                            break
+                        }
                     }
                 }
             }
+            if (mapChanged) {break}
         }  
     }
 }
@@ -443,6 +461,31 @@ function startSolving () {
 function finishSolving() {
     document.getElementById("solvebtns").style.display = "none"
     document.getElementById("endbtns").style.display = "flex"
+}
+
+function findAssociate() {
+    let potential = [] // Initialize a list of potential positions
+    let counterList =[].concat(rowCounter,colCounter,boxCounter)
+    
+    // Loop through every group
+    for (let ct=0; ct < counterList.length; ct++ ) {
+        let group = counterList[ct]        // The current group
+        potential = findByAppearTimes(group,[2,3]) // Get a list of all numbers appears twice in this group    
+        if (potential.length > 0) {
+            for (let i=0;i<potential.length;i++) {
+                let relatedPos = findRelatedPos(potential[i].positions) 
+                if (relatedPos.length > 9) {
+                    delPoss(relatedPos,[potential[i].value],potential[i].positions)
+                    if (mapChanged) {
+                        console.log("Found associate")
+                        console.log(potential[i])
+                        break
+                    }
+                }
+            }
+            if (mapChanged) {break}
+        }
+    }   
 }
 
 let map = [] // Initialize map
@@ -485,6 +528,13 @@ solvebtn.addEventListener("click",function() {
             move = findAppearOnce(counterList)
         }
 
+        // Find associate to reduce possibilities
+        if (!mapChanged) {
+            // Find pairs from every groups
+            findAssociate()
+            if(mapChanged) {continue} // While loop
+        }
+
         // Find pairs to reduce possibilites
         if (!mapChanged) {
             // Find pairs from every groups
@@ -524,9 +574,15 @@ hintbtn.addEventListener("click",function () {
         move = findAppearOnce(counterList)
     }
 
+    // Find associate to reduce possibilities
+    if (!mapChanged) {
+        // Find associate from every group
+        findAssociate()
+    }
+
     // Find pairs to reduce possibilites
     if (!mapChanged) {
-        // Find pairs from every groups
+        // Find pairs from every group
         findPairs()
     }
 
@@ -541,7 +597,7 @@ hintbtn.addEventListener("click",function () {
         makeMove(move)
     }
 
-    if (!mapChanged) {
+    if (!mapChanged & emptySpace != 0) {
         alert("Can't solve")
         finishSolving()
     }
@@ -553,6 +609,7 @@ finishbtn.addEventListener("click",function () {
         inputBlocks[i].value = ""
         inputBlocks[i].style.display = "inline-block"
     }
+    inputBlocks[0].focus()
     document.getElementById("endbtns").style.display = "none"
     document.getElementById("beginbtns").style.display = "flex"
 })

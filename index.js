@@ -232,7 +232,7 @@ function findOnePoss() {
             let pos = map[r][c]
             if (pos.value != 0) {continue}
             if (pos.poss.length == 1) {
-                console.log("One possibilities")
+                console.log("One possibility")
                 move = [[r,c],pos.poss[0]]
                 mapChanged = true
             }
@@ -787,7 +787,101 @@ function findXWing() {
             }
         }  
     }
+}
 
+function sharedPostions (posList) {
+    let results = []
+    let potentials = findRelatedPos([posList[0]]) 
+    for (let i=0;i< potentials.length;i++) {
+        results.push(potentials[i])
+        for (let j=1;j<posList.length;j++) {
+            if (!inFunc ( potentials[i] , findRelatedPos([posList[j]])) ) {
+                delFunc( potentials[i],results)
+                break
+            }
+        }
+    }
+    return reduceList(results)
+}
+
+function findSkyscraper() {
+    let potential = []
+    for (let i=0;i<9-1;i++) { // Loop through every collumn
+        let col = colCounter[i] 
+        potential = findByAppearTimes(col,2)    // Get all numbers only appear twice
+        if (potential.length > 0) {             
+            for (let j=0;j<potential.length;j++) {  // Loop through every potential number
+                let value = potential[j].value          // Get the potential number
+                let positions = potential[j].positions  // Get its positions
+                for (let c=i+1;c<9;c++) {           // Loop through the rest col
+                    let searchingValue = colCounter[c][value-1]     // Get details about the number
+                    if (searchingValue.appearance == 2) {           // If it appears twice
+                        let searchingPos = searchingValue.positions // Get its positions
+                        // If both positions are in the row with the initial positions
+                        if (positions[0][0] == searchingPos[0][0] ^ positions[1][0] == searchingPos[1][0]) {     
+                            let base1 = positions[1]
+                            let base2 = searchingPos[1]
+                            let top1 = positions[0]
+                            let top2 = searchingPos[0]
+                            if (positions[0][0] == searchingPos[0][0]) {
+                                base1 = positions[0]
+                                base2 = searchingPos[0]
+                                top1 = positions[1]
+                                top2 = searchingPos[1]
+                            }
+                            if (sharedPostions([top1,top2]).length == 6) {
+                                delPoss(sharedPostions([top1,top2]),value,[])
+                            }
+                            if (mapChanged) {
+                                console.log("Found skyscraper")
+                                console.log(value)
+                                console.log([top1,base1,base2,top2])
+                                return
+                            }
+                        }
+                    }
+                }
+            }
+        }  
+    }
+    for (let i=0;i<9-1;i++) { // Loop through every row
+        let row = rowCounter[i] 
+        potential = findByAppearTimes(row,2)    // Get all numbers only appear twice
+        if (potential.length > 0) {             
+            for (let j=0;j<potential.length;j++) {  // Loop through every potential number
+                let value = potential[j].value          // Get the potential number
+                let positions = potential[j].positions  // Get its positions
+                for (let r=i+1;r<9;r++) {           // Loop through the rest rows
+                    let searchingValue = rowCounter[r][value-1]     // Get details about the number
+                    if (searchingValue.appearance == 2) {           // If it appears twice
+                        let searchingPos = searchingValue.positions // Get its positions
+                        // If only one in the column with the initial position
+                        if (positions[0][1] == searchingPos[0][1] ^ positions[1][1] == searchingPos[1][1]) {     
+                            let base1 = positions[1]
+                            let base2 = searchingPos[1]
+                            let top1 = positions[0]
+                            let top2 = searchingPos[0]
+                            if (positions[0][1] == searchingPos[0][1]) {
+                                base1 = positions[0]
+                                base2 = searchingPos[0]
+                                top1 = positions[1]
+                                top2 = searchingPos[1]
+                            }
+                            if (sharedPostions([top1,top2]).length == 6) {
+                                delPoss(sharedPostions([top1,top2]),value,[])
+                            }
+                            if (mapChanged) {
+                                console.log("Found skyscraper")
+                                console.log(value)
+                                console.log([top1,base1,base2,top2])
+                                return
+                            }
+                        }
+                    }
+                }
+            }
+        }  
+    }
 
 }
 
@@ -852,21 +946,27 @@ solvebtn.addEventListener("click",function() {
             if(mapChanged) {continue} // While loop
         }
 
-        // Find naked triple to reduce possibilities
+        // Find X-wing to reduce possibilities
         if (!mapChanged) {
-            // Find naked triple from every groups
+            // Find naked X-wing from every groups
             findXWing()
             if(mapChanged) {continue} // While loop
         }
 
         if (!mapChanged) {
-            // Find X-wing from every groups
+            // Find naked from every groups
             findNakedTriple()
             if(mapChanged) {continue} // While loop
         }
 
         if (!mapChanged) {
-            // Find X-wing from every group
+            // Find naked skyscraper from every groups
+            findSkyscraper()
+            if(mapChanged) {continue} // While loop
+        }
+
+        if (!mapChanged) {
+            // Find hidden triple from every group
             findHiddenTriple()
             if(mapChanged) {continue} // While loop
         }
@@ -932,6 +1032,12 @@ hintbtn.addEventListener("click",function () {
         // Find naked triple from every group
         findNakedTriple()
     }
+
+    // Find skyscraper to reduce possibilities
+    if (!mapChanged) {
+        findSkyscraper()
+    }
+
 
     // Find hidden triple to reduce possibilities
     if (!mapChanged) {
